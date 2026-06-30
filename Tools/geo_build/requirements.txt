@@ -1,0 +1,5 @@
+# Dependencies for the PRODUCTION pipeline (build_real.py) only.
+# The sample builder (build_sample.py) uses the Python standard library and needs none of these.
+shapely>=2.0
+pyshp>=2.3
+requests>=2.31
