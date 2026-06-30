@@ -1,8 +1,12 @@
 # Patchwork iOS
 
+_Updated 2026-06-30 to match the shipped product and launch scope. See [LAUNCH_READINESS.md](LAUNCH_READINESS.md)._
+
 Patchwork is a private, local-first iOS map-completion game.
 
 > "Color the map you actually live."
+
+**Implementation status: pre-build / docs-only.** This repo currently contains documentation plus empty placeholder folders — no `Package.swift`, no Xcode project, no Swift source, no geodata, and no tests yet. `LAUNCH_READINESS.md` is the authoritative build-to spec (PRD, MVP feature list with acceptance criteria, user flows, bug/risk triage, and the ordered build path).
 
 Postal areas you physically enter become translucent colored patches that roll up into city, county, state, and country completion as you zoom out.
 

@@ -1,6 +1,6 @@
 # Current Status
 
-_Last updated: 2026-06-29 after Build Task 1 of 18._
+_Last updated: 2026-06-30. The launch-scope build-to spec is `LAUNCH_READINESS.md` at the repo root; the stale `Docs/PROJECT_DOCUMENTATION.md` (which described a generic tile puzzle) has been corrected to the real map-completion product._
 
 ## What Exists Now
 
