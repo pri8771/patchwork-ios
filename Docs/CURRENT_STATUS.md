@@ -1,6 +1,6 @@
 # Current Status
 
-_Last updated: 2026-06-30 — V1 implementation build (core libraries + iOS app + geo pipeline)._
+_Last updated: 2026-06-30 — V1 implementation build (core libraries + iOS app + geo pipeline). The launch-scope spec is `LAUNCH_READINESS.md` at the repo root; the stale `Docs/PROJECT_DOCUMENTATION.md` (which described a generic tile puzzle) has been corrected to the real map-completion product._
 
 ## What Exists Now
 
