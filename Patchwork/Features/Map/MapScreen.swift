@@ -19,6 +19,11 @@ struct MapScreen: View {
                         withAnimation { appStore.lastOutcome = nil }
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else if let patch = appStore.inspectedPatch {
+                    InspectCard(info: patch, claimed: appStore.isClaimed(patch.index)) {
+                        withAnimation { appStore.inspectedPatch = nil }
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
                 if isLocationDenied {
                     LocationDeniedBanner { openSettings() }
@@ -29,6 +34,8 @@ struct MapScreen: View {
         }
         .overlay(alignment: .top) { headerBar }
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: appStore.lastOutcome)
+        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: appStore.inspectedPatch)
+        .onChange(of: appStore.lastOutcome) { _, new in if new != nil { appStore.inspectedPatch = nil } }
         .alert("Location", isPresented: Binding(
             get: { appStore.errorMessage != nil },
             set: { if !$0 { appStore.errorMessage = nil } })) {
@@ -47,9 +54,11 @@ struct MapScreen: View {
                 visitedVersion: appStore.visitedVersion,
                 countyCompletion: appStore.countyCompletion,
                 recenter: appStore.recenter,
-                onTapZCTA: { idx in appStore.claim(index: idx, recenterToPatch: false) }
+                onTapZCTA: { idx in appStore.inspect(index: idx) }
             )
             .ignoresSafeArea(edges: .top)
+            .accessibilityLabel("Map of your patches")
+            .accessibilityValue("\(appStore.patchesFilled) of \(appStore.patchesTotal) patches colored")
         } else {
             Color.clear
         }
@@ -78,6 +87,7 @@ struct MapScreen: View {
                     .background(Theme.Palette.surface, in: Circle())
                     .overlay(Circle().strokeBorder(Theme.Palette.hairline, lineWidth: 1))
             }
+            .accessibilityLabel("Center map on my location")
         }
         .padding(.horizontal, Theme.Spacing.l)
         .padding(.top, Theme.Spacing.s)
@@ -98,6 +108,7 @@ struct MapScreen: View {
         ) {
             Task { await appStore.claimCurrentLocation() }
         }
+        .accessibilityHint("Uses your current location to color the postal area you’re in")
     }
 
     private var isLocationDenied: Bool {
@@ -163,6 +174,48 @@ private struct ClaimOutcomeCard: View {
         case .outsideCoverage:
             return "You’re outside this map’s coverage area."
         }
+    }
+}
+
+/// Shown when the user taps a patch on the map — reveals which patch it is and whether it's
+/// already colored. Tapping never claims; claiming is location-gated.
+private struct InspectCard: View {
+    let info: ZCTAInfo
+    let claimed: Bool
+    let onDismiss: () -> Void
+    @EnvironmentObject private var appStore: AppStore
+
+    var body: some View {
+        Card {
+            HStack(spacing: Theme.Spacing.m) {
+                PatchSwatch(patchColor: PatchPalette.color(for: info.index),
+                            filled: claimed, size: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("ZIP-like \(info.code.value)")
+                        .font(Theme.Font.headline).foregroundStyle(Theme.Palette.ink)
+                    Text(areaLabel).font(Theme.Font.caption).foregroundStyle(Theme.Palette.inkSecondary)
+                }
+                Spacer()
+                if claimed {
+                    Label("Colored", systemImage: "checkmark.seal.fill")
+                        .labelStyle(.iconOnly)
+                        .foregroundStyle(Theme.Palette.success)
+                        .accessibilityLabel("Already colored")
+                } else {
+                    Text("Not yet")
+                        .font(Theme.Font.caption)
+                        .foregroundStyle(Theme.Palette.inkTertiary)
+                }
+                Button { onDismiss() } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.Palette.inkTertiary)
+                }
+                .accessibilityLabel("Dismiss")
+            }
+        }
+    }
+
+    private var areaLabel: String {
+        info.placeName ?? appStore.countyName(for: info.countyID) ?? "Unclaimed area"
     }
 }
 

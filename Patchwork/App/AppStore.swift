@@ -31,6 +31,7 @@ final class AppStore: ObservableObject {
     @Published private(set) var recentClaims: [ClaimEventRecord] = []
     @Published var recenter: MKCoordinateRegion?
     @Published var lastOutcome: ClaimOutcome?
+    @Published var inspectedPatch: ZCTAInfo?
     @Published var errorMessage: String?
 
     let location: LocationService
@@ -49,6 +50,22 @@ final class AppStore: ObservableObject {
     // MARK: - Loading
 
     func bootstrap() async {
+        await loadGeo()
+        if case .ready = loadState {
+            // Dev/screenshot hook: claim the dataset-center patch to exercise the real
+            // resolve→claim→persist→outcome path without needing a live location fix.
+            if ProcessInfo.processInfo.arguments.contains("-PWClaimOnLaunch"), let b = geoStore?.metadata.bounds {
+                claim(coordinate: Coordinate(latitude: (b.minY + b.maxY) / 2,
+                                             longitude: (b.minX + b.maxX) / 2),
+                      recenterToPatch: true)
+            }
+            await store.loadProducts()
+        }
+    }
+
+    /// Loads the bundled geodata and restores saved progress. Split out from `bootstrap()` (which
+    /// also loads StoreKit products) so it can be exercised in tests without the store.
+    func loadGeo() async {
         guard case .loading = loadState else { return }
         do {
             // Load the heavy geodata (decode polygons + build the spatial index) off the main actor.
@@ -62,7 +79,6 @@ final class AppStore: ObservableObject {
             seedDemoIfRequested()
             recompute()
             loadState = .ready
-            await store.loadProducts()
         } catch {
             loadState = .failed("Couldn’t load Patchwork’s map data. \(error.localizedDescription)")
         }
@@ -70,15 +86,19 @@ final class AppStore: ObservableObject {
 
     private func restoreState() {
         guard let geoStore else { return }
-        let id = datasetID
-        let descriptor = FetchDescriptor<MapStateRecord>(
-            predicate: #Predicate { $0.datasetID == id })
-        if let record = try? modelContext.fetch(descriptor).first,
+        if let record = existingMapStateRecord(),
            let restored = try? VisitedBitset(serialized: record.bitsetData),
            restored.capacity == geoStore.zctaCount {
             visited = restored
         }
         loadRecentClaims()
+    }
+
+    /// The single map-state record for the active dataset, if any. We fetch all (there is at most
+    /// a handful) and filter in Swift rather than via a SwiftData `#Predicate`.
+    private func existingMapStateRecord() -> MapStateRecord? {
+        let all = (try? modelContext.fetch(FetchDescriptor<MapStateRecord>())) ?? []
+        return all.first { $0.datasetID == datasetID }
     }
 
     /// Screenshot/demo affordance: when launched with `-PWDemoSeed`, fills a representative set
@@ -164,7 +184,16 @@ final class AppStore: ObservableObject {
         claim(index: idx, recenterToPatch: recenterToPatch)
     }
 
-    /// Claims a specific ZCTA index (used by map taps in a debug build and by claim flows).
+    /// Inspects (does not claim) the patch the user tapped. Claiming is location-gated by design
+    /// — tapping the map only reveals which patch it is and whether it's already colored, so the
+    /// map can't be filled in without physically being there.
+    func inspect(index idx: Int) {
+        inspectedPatch = geoStore?.info(forIndex: idx)
+    }
+
+    func isClaimed(_ idx: Int) -> Bool { visitedIndices.contains(idx) }
+
+    /// Claims a specific ZCTA index. Used by the location-resolved claim flow.
     func claim(index idx: Int, recenterToPatch: Bool) {
         guard let geoStore, let info = geoStore.info(forIndex: idx) else { return }
         let isNew = visited.insert(idx)
@@ -194,15 +223,12 @@ final class AppStore: ObservableObject {
     // MARK: - Persistence
 
     private func persist() {
-        let id = datasetID
         let data = visited.serialized()
-        let descriptor = FetchDescriptor<MapStateRecord>(
-            predicate: #Predicate { $0.datasetID == id })
-        if let record = try? modelContext.fetch(descriptor).first {
+        if let record = existingMapStateRecord() {
             record.bitsetData = data
             record.updatedAt = .now
         } else {
-            modelContext.insert(MapStateRecord(datasetID: id, bitsetData: data))
+            modelContext.insert(MapStateRecord(datasetID: datasetID, bitsetData: data))
         }
         try? modelContext.save()
     }

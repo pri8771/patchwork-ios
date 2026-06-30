@@ -43,9 +43,21 @@ _Last updated: 2026-06-30 — V1 implementation build (core libraries + iOS app 
 ## Build and Verification Status
 
 - Swift package tests: **passing** (`swift test`, 40 tests).
+- App-layer tests: **passing** (`PatchworkTests`, 7 tests — claim/inspect/export/import/reset/
+  persistence/rollups against the real bundle + an in-memory SwiftData store).
 - iOS app build: **succeeds** for the iOS 17+ simulator (`xcodebuild`, Xcode 26). Launched and
-  screenshot-verified (onboarding, map with patches, progress, settings, paywall).
+  screenshot-verified end to end: onboarding, the real claim flow ("New patch!" outcome), map with
+  patches, progress, settings, paywall.
 - Lookup scale benchmark: **passing** the locked release-mode <10 ms p95 gate (see RISK_LOG).
+
+### Hardening pass (post initial build)
+
+- **Tap-to-inspect, not tap-to-claim.** Tapping the map now only reveals a patch's id/region/claimed
+  status; claiming stays location-gated so the map can't be filled in without being there.
+- **Fixed a SwiftData persistence crash** in the claim→persist path (was masked because demo-seed
+  bypasses persistence) — the app-layer tests caught it; switched off `#Predicate`/`.unique` to
+  predicate-free fetches and confirmed the container is retained for its context's lifetime.
+- Added accessibility labels/hints to the map, claim, and locate controls.
 
 ## What Is Intentionally Deferred
 

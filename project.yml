@@ -42,13 +42,29 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         SWIFT_EMIT_LOC_STRINGS: YES
 
+  PatchworkTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: PatchworkTests
+    dependencies:
+      - target: Patchwork
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.patchworkapp.PatchworkTests
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   Patchwork:
     build:
       targets:
         Patchwork: all
+        PatchworkTests: [test]
     run:
       config: Debug
       storeKitConfiguration: Patchwork/Resources/Patchwork.storekit
     test:
       config: Debug
+      targets:
+        - PatchworkTests

@@ -39,8 +39,10 @@ V1 readiness. Updated after the implementation build.
 ## Quality
 
 - [x] Swift package tests pass (`swift test`, 40 tests).
+- [x] App-layer tests pass (`PatchworkTests`, 7 tests via `xcodebuild test`).
 - [x] Xcode build verified in an Xcode-capable environment (Xcode 26, iOS 17+ simulator).
 - [x] Lookup performance measured against the locked release-mode p95 gate (see RISK_LOG).
+- [x] Core loop verified in the running app (claim → outcome → persist → rollup; tap-to-inspect).
 - [ ] On-device performance pass on real iPhone hardware with the national bundle.
 - [ ] App Store metadata, screenshots, privacy nutrition label, and signing.
-- [ ] Accessibility + Dynamic Type pass on all screens.
+- [ ] Full accessibility + Dynamic Type sweep on every screen (key controls labeled).

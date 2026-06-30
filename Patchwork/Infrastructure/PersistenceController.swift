@@ -6,8 +6,9 @@ import SwiftData
 @Model
 final class MapStateRecord {
     /// Which bundled dataset this state belongs to (e.g. "sample"). Lets us migrate/reset
-    /// cleanly if the geodata vintage changes.
-    @Attribute(.unique) var datasetID: String
+    /// cleanly if the geodata vintage changes. Uniqueness is enforced in code (one record per
+    /// dataset) rather than via `@Attribute(.unique)`, which we avoid here.
+    var datasetID: String
     /// `VisitedBitset.serialized()` output.
     var bitsetData: Data
     var updatedAt: Date
