@@ -1,49 +1,67 @@
 # Current Status
 
-_Last updated: 2026-06-29 after Build Task 1 of 18._
+_Last updated: 2026-06-30 — V1 implementation build (core libraries + iOS app + geo pipeline)._
 
 ## What Exists Now
 
-- The repository has been audited at a baseline level and currently contains documentation plus placeholder folder scaffolding.
-- `README.md` describes the Patchwork purpose, local-only rule, hard exclusions, and build notes.
-- Canonical documentation now exists in `Docs/`:
-  - `LOCKED_V1_DECISIONS.md`
-  - `ARCHITECTURE.md`
-  - `CODEX_BUILD_PLAN.md`
-  - `CURRENT_STATUS.md`
-  - `ASSUMPTIONS_LOG.md`
-  - `RISK_LOG.md`
-  - `PRIVACY_NOTES.md`
-  - `RELEASE_CHECKLIST.md`
-- Baseline source folders now exist:
-  - `Patchwork/App`
-  - `Patchwork/DesignSystem`
-  - `Patchwork/Features`
-  - `Patchwork/Infrastructure`
-  - `Patchwork/Resources`
-  - `Sources/PatchworkCore`
-  - `Sources/PatchworkGeo`
-  - `Sources/PatchworkData`
-  - `Tests`
-  - `Tools/geo_build`
+### Verified Swift package (pure logic, `swift test` green)
 
-## What Does Not Exist Yet
+- `Package.swift` with three dependency-free library targets and test targets.
+- `PatchworkCore`: `ZCTACode`/`ZCTAIndex`, the compact `VisitedBitset` (with versioned binary
+  serialization), `Region`/`WeightedRegion`, the `RollupEngine` (weighted sums, never runtime
+  spatial intersection), `ProgressSnapshot`, and the deterministic `PatchPalette`.
+- `PatchworkGeo`: `Coordinate`/`Point2D`/`BoundingBox`, `GeoPolygon` point-in-polygon (holes,
+  concavity, boundary-inclusive), a bulk-loaded STR `SpatialIndex` (R-tree), and `FeatureResolver`
+  (broad phase → narrow phase → stable-id boundary tie-break).
+- `PatchworkData`: a system-SQLite reader (`SQLiteDatabase`), the `GeometryCodec` (mirrors the
+  Python encoder), and `GeoDataStore` (loads the bundle, builds the resolver, serves rollups).
+- 40 tests pass, including the locked correctness fixture (inside/outside/shared-edge/concave) and
+  the non-degenerate scale benchmark.
 
-- No Xcode project or Swift package manifest exists yet.
-- No Swift source files exist yet.
-- No app target, executable app shell, or MapKit bridge exists yet.
-- No geodata assets, generated SQLite files, binary assets, or sample datasets exist yet.
-- No SwiftData schema exists yet.
-- No StoreKit configuration or products exist yet.
-- No tests exist yet beyond the placeholder test folder.
+### iOS app (builds for the iOS 17+ simulator via xcodegen + xcodebuild)
+
+- SwiftUI shell: `PatchworkApp`, `RootView`, `MainTabView`, onboarding/loading/failed states.
+- A Claude-designed design system (`Theme`, `Components`): warm-paper palette, terracotta accent,
+  rounded display type, reusable cards/buttons/progress ring/bars/stat tiles.
+- UIKit `MKMapView` bridge (`PatchMapView`) rendering `MKMultiPolygon` patch overlays with viewport
+  culling and a county-merge LOD fallback at far zoom.
+- Features: Onboarding (with the pre-permission trust/education + ZCTA-honesty screens), Map (Claim
+  Current Patch + outcome card), Progress (ring, level breakdowns, non-punitive "this month"
+  counter, recent timeline), Settings (export/import/reset, privacy, about), Paywall, and a
+  privacy-safe Share card.
+- Infrastructure: `LocationService` (While-Using-first, single-fix), SwiftData `PersistenceController`
+  (user state only, no iCloud), `StoreManager` (StoreKit 2, on-device entitlements), and
+  `ShareCardView`/renderer.
+
+### Geodata pipeline + bundled sample
+
+- `Tools/geo_build`: shared `geo_format.py`/`schema.sql`, a runnable stdlib `build_sample.py`, and
+  the documented production `build_real.py` skeleton (pinned 2025 TIGER/Line).
+- A shipped `patchwork-sample.sqlite` (~200 KB, 400 ZCTAs, 19 regions over the SF Bay Area) so the
+  app runs end to end offline.
 
 ## Build and Verification Status
 
-- Swift package tests: not available yet because `Package.swift` has not been created.
-- Xcode build: UNVERIFIED_XCODE_ENVIRONMENT because no Xcode project exists in this baseline scaffold.
+- Swift package tests: **passing** (`swift test`, 40 tests).
+- App-layer tests: **passing** (`PatchworkTests`, 7 tests — claim/inspect/export/import/reset/
+  persistence/rollups against the real bundle + an in-memory SwiftData store).
+- iOS app build: **succeeds** for the iOS 17+ simulator (`xcodebuild`, Xcode 26). Launched and
+  screenshot-verified end to end: onboarding, the real claim flow ("New patch!" outcome), map with
+  patches, progress, settings, paywall.
+- Lookup scale benchmark: **passing** the locked release-mode <10 ms p95 gate (see RISK_LOG).
 
-## Current Open Work
+### Hardening pass (post initial build)
 
-- Create Swift package foundation and initial tests.
-- Define core models and visited bitset.
-- Build geospatial algorithms, tooling, persistence, UI, MapKit rendering, monetization, privacy/export flows, performance guardrails, full geodata integration, and release hardening in later tasks.
+- **Tap-to-inspect, not tap-to-claim.** Tapping the map now only reveals a patch's id/region/claimed
+  status; claiming stays location-gated so the map can't be filled in without being there.
+- **Fixed a SwiftData persistence crash** in the claim→persist path (was masked because demo-seed
+  bypasses persistence) — the app-layer tests caught it; switched off `#Predicate`/`.unique` to
+  predicate-free fetches and confirmed the container is retained for its context's lifetime.
+- Added accessibility labels/hints to the map, claim, and locate controls.
+
+## What Is Intentionally Deferred
+
+- Full 33k-ZCTA national bundle + real-data lookup validation (separate data-bundle step).
+- Always/background location (behind a later in-app permission gate, per locked decision #10).
+- Real StoreKit product review/pricing finalization and App Store metadata/screenshots.
+- App Store signing/distribution (the project builds unsigned for the simulator here).

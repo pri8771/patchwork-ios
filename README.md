@@ -34,8 +34,30 @@ Patchwork V1 must not introduce a backend, Firebase, accounts, leaderboard, soci
 - `Tests/`: future automated tests.
 - `Tools/geo_build/`: future offline Census geodata pipeline.
 
-## Build Notes
+## Repository Shape
 
-No Xcode project, Swift package manifest, app target, or tests exist yet. Until those are added, Swift package tests are unavailable and Xcode build status is `UNVERIFIED_XCODE_ENVIRONMENT`.
+- `Package.swift` + `Sources/` + `Tests/`: the pure, UI-independent libraries (`PatchworkCore`, `PatchworkGeo`, `PatchworkData`) and their `swift test` suite. No third-party dependencies; SQLite uses the system library.
+- `project.yml`: the [xcodegen](https://github.com/yonsm/XcodeGen) spec for the iOS app. The `Patchwork.xcodeproj` is generated and git-ignored.
+- `Patchwork/`: the SwiftUI app (App, DesignSystem, Features, Infrastructure, Resources). Links the local Swift package.
+- `Tools/geo_build/`: the offline Census geodata pipeline (stdlib sample builder + production TIGER/Line skeleton).
 
-When Xcode is unavailable in automation, run all possible Swift package tests and report the Xcode build status as `UNVERIFIED_XCODE_ENVIRONMENT`, never as passed.
+## Build & Test
+
+```bash
+# Pure logic libraries (no Xcode/simulator needed):
+swift test                         # all core/geo/data tests
+swift test -c release --filter ResolverScaleBenchmarkTests   # locked <10ms p95 lookup gate
+
+# iOS app:
+brew install xcodegen              # one-time
+make bootstrap                     # xcodegen generate → Patchwork.xcodeproj
+make build-app                     # xcodebuild for the simulator
+```
+
+`make sample` regenerates the bundled sample geodata; `make icon` regenerates the app icon.
+
+## Build Status
+
+- Swift package tests: **passing** (`swift test`).
+- iOS app: **builds for the iOS 17+ simulator** (`xcodebuild`, Xcode 26).
+- Lookup scale benchmark: **passing** the locked release-mode gate (synthetic 10k-polygon set; see `Docs/RISK_LOG.md`). Full 33k-ZCTA real-data validation is a deliberate later step.
